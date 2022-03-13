@@ -91,7 +91,6 @@ BVHNode *BVHAccel::construct_bvh(std::vector<Primitive *>::iterator start,
     double spl = 0.0;
  
     for (auto p = start; p != end; p++) {
-      std::cout << "102" << endl;
       spl += (*p)->get_bbox().centroid()[ax];
     }
     spl /= num_primitives;

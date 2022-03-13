@@ -108,7 +108,7 @@ Vector3D PathTracer::zero_bounce_radiance(const Ray &r,
   // Returns the light that results from no bounces of light
 
 
-  return Vector3D(1.0);
+  return isect.bsdf->get_emission();
 
 
 }
@@ -120,7 +120,7 @@ Vector3D PathTracer::one_bounce_radiance(const Ray &r,
   // depending on `direct_hemisphere_sample`
 
 
-  return isect.bsdf->get_emission();
+  return Vector3D(1.0);
 
 
 }
