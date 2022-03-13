@@ -120,7 +120,7 @@ Vector3D PathTracer::one_bounce_radiance(const Ray &r,
   // depending on `direct_hemisphere_sample`
 
 
-  return Vector3D(1.0);
+  return isect.bsdf->get_emission();
 
 
 }
@@ -184,9 +184,19 @@ void PathTracer::raytrace_pixel(size_t x, size_t y) {
 
   int num_samples = ns_aa;          // total samples to evaluate
   Vector2D origin = Vector2D(x, y); // bottom left corner of the pixel
+  Vector3D estimate = Vector3D(0, 0, 0);
 
+  for (int i = 0; i < num_samples; i++) {
+    Vector2D sample = gridSampler->get_sample();
+    Vector2D sample_pt = origin + sample;
+    Ray ray = camera->generate_ray(sample_pt.x/sampleBuffer.w, sample_pt.y/sampleBuffer.h);
+    ray.depth = this->max_ray_depth;
+    estimate += est_radiance_global_illumination(ray);
+    // no need to divide by pdf, since we would just be dividing by (1*1)
+  }
+  estimate = estimate / num_samples;
 
-  sampleBuffer.update_pixel(Vector3D(0.2, 1.0, 0.8), x, y);
+  sampleBuffer.update_pixel(estimate, x, y);
   sampleCountBuffer[x + y * sampleBuffer.w] = num_samples;
 
 
