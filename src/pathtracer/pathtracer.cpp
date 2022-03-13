@@ -117,7 +117,36 @@ PathTracer::estimate_direct_lighting_importance(const Ray &r,
   const Vector3D hit_p = r.o + r.d * isect.t;
   const Vector3D w_out = w2o * (-r.d);
   Vector3D L_out;
-  return Vector3D(1.0);
+
+  /*
+  • Iterate thru all `lights`
+  • `num samples = 1` if `is_delta_light()`
+  • Take `num samples` # of samples per light (sampleL)
+  • Intersection test (check if blocked, if not–add to L_out)
+  */
+  int num_samples = 0;
+  Vector3D wi; Vector3D res; double dist; double pdf;
+  for (auto l = scene->lights.begin(); l != scene->lights.end(); l++) {
+    num_samples = (*l)->is_delta_light() ? 1 : ns_area_light;
+    for (int i = 0; i < num_samples; i++) {
+      Vector3D L = (*l)->sample_L(hit_p, &wi, &dist, &pdf);
+      Ray randomR = Ray(hit_p, wi);
+      randomR.min_t = EPS_F;
+      Intersection randomIsect;
+      randomR.max_t = dist - EPS_F;
+      bool didIntersect = bvh->intersect(randomR, &randomIsect);
+      
+      if (!didIntersect) {
+        Vector3D Fr = isect.bsdf->f(w_out, wi);
+        Vector3D eval = L * Fr / pdf;
+        L_out += eval;
+      }
+    }
+    L_out /= num_samples;
+    res += L_out;
+  }
+
+  return res;
 
 }
 
