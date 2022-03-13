@@ -47,6 +47,7 @@ void PathTracer::write_to_framebuffer(ImageBuffer &framebuffer, size_t x0,
 Vector3D
 PathTracer::estimate_direct_lighting_hemisphere(const Ray &r,
                                                 const Intersection &isect) {
+  // TODO (Part 3):
   // Estimate the lighting from this intersection coming directly from a light.
   // For this function, sample uniformly in a hemisphere.
 
@@ -55,6 +56,17 @@ PathTracer::estimate_direct_lighting_hemisphere(const Ray &r,
 
   // make a coordinate system for a hit point
   // with N aligned with the Z direction.
+
+    /* 
+  For loop num_samples times:
+    randomly sample a vector wj (starting at hit_p)
+    call BVH accel intersect 
+    Set Li = itntersect.bdsf.getemission()
+    Computer Li dot BSDF::f(wo, wi)
+    Divide by pdf
+    sum and average results
+  */
+
   Matrix3x3 o2w;
   make_coord_space(o2w, isect.n);
   Matrix3x3 w2o = o2w.T();
@@ -69,14 +81,23 @@ PathTracer::estimate_direct_lighting_hemisphere(const Ray &r,
   // same number of samples for clarity of comparison.
   int num_samples = scene->lights.size() * ns_area_light;
   Vector3D L_out;
-
-  // TODO (Part 3): Write your sampling loop here
-  // TODO BEFORE YOU BEGIN
-  // UPDATE `est_radiance_global_illumination` to return direct lighting instead of normal shading 
-
-  return Vector3D(1.0);
-
-}
+  Vector3D sample_vec; double pdf;
+    for (int i = 0; i < num_samples; i++) {
+      Vector3D Fr = isect.bsdf->sample_f(w_out, &sample_vec, &pdf); // this function gives us a random vector and calculates Fr
+      sample_vec = o2w * sample_vec;
+      Ray randomR = Ray(hit_p, sample_vec); // wasn't working unless we use the ray constructor??
+      randomR.min_t = EPS_F;
+      Intersection randomIsect;
+      bool didIntersect = bvh->intersect(randomR, &randomIsect);
+      if (didIntersect == true) {
+        Vector3D L = randomIsect.bsdf->get_emission();
+        Vector3D eval = L * Fr / pdf;
+        L_out += eval;
+      } 
+    }
+    L_out /= num_samples;
+    return L_out;
+  }
 
 Vector3D
 PathTracer::estimate_direct_lighting_importance(const Ray &r,
@@ -96,8 +117,6 @@ PathTracer::estimate_direct_lighting_importance(const Ray &r,
   const Vector3D hit_p = r.o + r.d * isect.t;
   const Vector3D w_out = w2o * (-r.d);
   Vector3D L_out;
-
-
   return Vector3D(1.0);
 
 }
@@ -107,10 +126,8 @@ Vector3D PathTracer::zero_bounce_radiance(const Ray &r,
   // TODO: Part 3, Task 2
   // Returns the light that results from no bounces of light
 
-
-  return isect.bsdf->get_emission();
-
-
+  //return Vector3D(1.0);
+ return isect.bsdf->get_emission();
 }
 
 Vector3D PathTracer::one_bounce_radiance(const Ray &r,
@@ -119,10 +136,11 @@ Vector3D PathTracer::one_bounce_radiance(const Ray &r,
   // Returns either the direct illumination by hemisphere or importance sampling
   // depending on `direct_hemisphere_sample`
 
-
-  return Vector3D(1.0);
-
-
+  if(direct_hemisphere_sample) {
+    return estimate_direct_lighting_hemisphere(r, isect);
+  } else {
+    return estimate_direct_lighting_importance(r, isect);
+  }
 }
 
 Vector3D PathTracer::at_least_one_bounce_radiance(const Ray &r,
@@ -139,7 +157,6 @@ Vector3D PathTracer::at_least_one_bounce_radiance(const Ray &r,
   // TODO: Part 4, Task 2
   // Returns the one bounce radiance + radiance from extra bounces at this point.
   // Should be called recursively to simulate extra bounces.
-
 
   return L_out;
 }
@@ -161,14 +178,14 @@ Vector3D PathTracer::est_radiance_global_illumination(const Ray &r) {
   if (!bvh->intersect(r, &isect))
     return envLight ? envLight->sample_dir(r) : L_out;
 
-
-  L_out = (isect.t == INF_D) ? debug_shading(r.d) : normal_shading(isect.n);
+ // std::cout << "198"<< endl;
+  L_out = (isect.t == INF_D) ? debug_shading(r.d) : (zero_bounce_radiance(r, isect) + one_bounce_radiance(r, isect));
 
   // TODO (Part 3): Return the direct illumination.
 
   // TODO (Part 4): Accumulate the "direct" and "indirect"
   // parts of global illumination into L_out rather than just direct
-
+  //std::cout << L_out << endl;
   return L_out;
 }
 
