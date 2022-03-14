@@ -121,7 +121,7 @@ bool BVHAccel::has_intersection(const Ray &ray, BVHNode *node) const {
 
 
 
-   double t0 = ray.min_t;
+  double t0 = ray.min_t;
   double t1 = ray.max_t;
   bool didIntersect = node->bb.intersect(ray, t0, t1);
 
@@ -158,11 +158,7 @@ bool BVHAccel::intersect(const Ray &ray, Intersection *i, BVHNode *node) const {
 
   bool didIntersect = node->bb.intersect(ray, t0, t1);
 
-  std::cout << didIntersect << endl;
-
-  // if (t0 < ray.min_t || t1 > ray.max_t) {
-  //   return false;
-  // }
+  //std::cout << didIntersect << endl;
 
   bool didHitPrim = false;
   if (didIntersect) {
