@@ -223,7 +223,7 @@ Vector3D PathTracer::est_radiance_global_illumination(const Ray &r) {
   if (!bvh->intersect(r, &isect))
     return envLight ? envLight->sample_dir(r) : L_out;
 
-  L_out = (isect.t == INF_D) ? debug_shading(r.d) : (zero_bounce_radiance(r, isect) + at_least_one_bounce_radiance(r, isect));
+  L_out = (isect.t == INF_D) ? debug_shading(r.d) : normal_shading(isect.n);//(zero_bounce_radiance(r, isect) + at_least_one_bounce_radiance(r, isect));
 
   // TODO (Part 3): Return the direct illumination.
 
