@@ -15,9 +15,28 @@ bool Sphere::test(const Ray &r, double &t1, double &t2) const {
   // Return true if there are intersections and writing the
   // smaller of the two intersection times in t1 and the larger in t2.
 
+  float a = dot(r.d, r.d);
+  float b = dot(2*(r.o-o), r.d);
+  float c = dot(r.o - o, r.o - o) - r2;
 
-  return true;
+  float radicand = b*b - 4 * a * c;
 
+  if(radicand < 0) {
+    return false;
+  }
+
+  float t_plus = (-b + sqrt(radicand))/(2*a); 
+  float t_minus = (-b - sqrt(radicand))/(2*a); 
+
+  if (t_plus >= 0 || t_minus >= 0) {
+    t1 = min(t_plus, t_minus);
+    t2 = max(t_plus, t_minus);
+    // std::cout <<"test t1: " << t1 << endl;
+    // std::cout <<"test t2: " << t2 << endl;
+    return true;
+  } else {
+    return false;
+  }
 }
 
 bool Sphere::has_intersection(const Ray &r) const {
@@ -49,7 +68,6 @@ bool Sphere::intersect(const Ray &r, Intersection *i) const {
   double t1;
   double t2;
   if(test(r, t1, t2)) { //test function does equation evaluation, checks that t >= 0, and deals with undefined square roots
-    std::cout << "intersect t1: " << t1 << " intersect t2: " << t2 << endl;
     if(t1>=r.min_t && t1<=r.max_t) {
       
       Vector3D int_point = r.o + t1 * r.d;

@@ -125,11 +125,14 @@ PathTracer::estimate_direct_lighting_importance(const Ray &r,
   • Intersection test (check if blocked, if not–add to L_out)
   */
   int num_samples = 0;
-  Vector3D wi; Vector3D res; double dist; double pdf;
+  Vector3D wi; Vector3D res(0.0); double dist; double pdf;
   for (auto l = scene->lights.begin(); l != scene->lights.end(); l++) {
     num_samples = (*l)->is_delta_light() ? 1 : ns_area_light;
     for (int i = 0; i < num_samples; i++) {
       Vector3D L = (*l)->sample_L(hit_p, &wi, &dist, &pdf);
+      /*if (wi.z < 0) {
+        continue;
+      } */
       Ray randomR = Ray(hit_p, wi);
       randomR.min_t = EPS_F;
       Intersection randomIsect;
@@ -174,14 +177,27 @@ Vector3D PathTracer::one_bounce_radiance(const Ray &r,
 
 Vector3D PathTracer::at_least_one_bounce_radiance(const Ray &r,
                                                   const Intersection &isect) {
+  const double CPDF = 0.4;
+  Vector3D sample_vec; double pdf;
   Matrix3x3 o2w;
   make_coord_space(o2w, isect.n);
   Matrix3x3 w2o = o2w.T();
-
   Vector3D hit_p = r.o + r.d * isect.t;
   Vector3D w_out = w2o * (-r.d);
 
-  Vector3D L_out(0, 0, 0);
+  Vector3D L_out = one_bounce_radiance(r, isect);
+  Vector3D Fr = isect.bsdf->sample_f(w_out, &sample_vec, &pdf); // this function gives us a random vector and calculates Fr
+  sample_vec = o2w * sample_vec;
+  Ray randomR = Ray(hit_p, -1 * sample_vec); // wasn't working unless we use the ray constructor??
+  randomR.min_t = EPS_F;
+  Intersection randomIsect;
+  randomR.depth = r.depth-1;
+  bool shouldStop = coin_flip(CPDF);
+  bool didIntersect = bvh->intersect(randomR, &randomIsect);
+  if(!shouldStop && didIntersect && randomR.depth > 1) {
+    L_out+= at_least_one_bounce_radiance(r, randomIsect) * Fr / pdf / CPDF;
+  }
+  return L_out;
 
   // TODO: Part 4, Task 2
   // Returns the one bounce radiance + radiance from extra bounces at this point.
@@ -207,14 +223,12 @@ Vector3D PathTracer::est_radiance_global_illumination(const Ray &r) {
   if (!bvh->intersect(r, &isect))
     return envLight ? envLight->sample_dir(r) : L_out;
 
- // std::cout << "198"<< endl;
-  L_out = (isect.t == INF_D) ? debug_shading(r.d) : (zero_bounce_radiance(r, isect) + one_bounce_radiance(r, isect));
+  L_out = (isect.t == INF_D) ? debug_shading(r.d) : (zero_bounce_radiance(r, isect) + at_least_one_bounce_radiance(r, isect));
 
   // TODO (Part 3): Return the direct illumination.
 
   // TODO (Part 4): Accumulate the "direct" and "indirect"
   // parts of global illumination into L_out rather than just direct
-  //std::cout << L_out << endl;
   return L_out;
 }
 
