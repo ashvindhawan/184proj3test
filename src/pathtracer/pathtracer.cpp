@@ -195,15 +195,13 @@ Vector3D PathTracer::at_least_one_bounce_radiance(const Ray &r,
   bool shouldStop = coin_flip(CPDF);
   bool didIntersect = bvh->intersect(randomR, &randomIsect);
   if(!shouldStop && didIntersect && randomR.depth > 1) {
-    L_out+= at_least_one_bounce_radiance(r, randomIsect) * Fr / pdf / CPDF;
+    L_out+= at_least_one_bounce_radiance(r, randomIsect) * dot(o2w * w_out, Fr) * Fr / pdf / CPDF;
   }
   return L_out;
 
   // TODO: Part 4, Task 2
   // Returns the one bounce radiance + radiance from extra bounces at this point.
   // Should be called recursively to simulate extra bounces.
-
-  return L_out;
 }
 
 Vector3D PathTracer::est_radiance_global_illumination(const Ray &r) {
@@ -223,7 +221,7 @@ Vector3D PathTracer::est_radiance_global_illumination(const Ray &r) {
   if (!bvh->intersect(r, &isect))
     return envLight ? envLight->sample_dir(r) : L_out;
 
-  L_out = (isect.t == INF_D) ? debug_shading(r.d) : normal_shading(isect.n);//(zero_bounce_radiance(r, isect) + at_least_one_bounce_radiance(r, isect));
+  L_out = (isect.t == INF_D) ? debug_shading(r.d) : (zero_bounce_radiance(r, isect) + at_least_one_bounce_radiance(r, isect));//normal_shading(isect.n);
 
   // TODO (Part 3): Return the direct illumination.
 
