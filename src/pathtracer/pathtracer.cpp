@@ -84,6 +84,7 @@ PathTracer::estimate_direct_lighting_hemisphere(const Ray &r,
   Vector3D sample_vec; double pdf;
     for (int i = 0; i < num_samples; i++) {
       Vector3D Fr = isect.bsdf->sample_f(w_out, &sample_vec, &pdf); // this function gives us a random vector and calculates Fr
+      float angle = dot(sample_vec, Vector3D(0, 0, 1));
       sample_vec = o2w * sample_vec;
       Ray randomR = Ray(hit_p, sample_vec); // wasn't working unless we use the ray constructor??
       randomR.min_t = EPS_F;
@@ -91,7 +92,7 @@ PathTracer::estimate_direct_lighting_hemisphere(const Ray &r,
       bool didIntersect = bvh->intersect(randomR, &randomIsect);
       if (didIntersect == true) {
         Vector3D L = randomIsect.bsdf->get_emission();
-        Vector3D eval = L * Fr / pdf;
+        Vector3D eval = L * Fr * angle / pdf;
         L_out += eval;
       } 
     }
@@ -130,18 +131,15 @@ PathTracer::estimate_direct_lighting_importance(const Ray &r,
     num_samples = (*l)->is_delta_light() ? 1 : ns_area_light;
     for (int i = 0; i < num_samples; i++) {
       Vector3D L = (*l)->sample_L(hit_p, &wi, &dist, &pdf);
-      /*if (wi.z < 0) {
-        continue;
-      } */
+      float angle = dot(wi, isect.n);
       Ray randomR = Ray(hit_p, wi);
       randomR.min_t = EPS_F;
       Intersection randomIsect;
       randomR.max_t = dist - EPS_F;
       bool didIntersect = bvh->intersect(randomR, &randomIsect);
-      
       if (!didIntersect) {
         Vector3D Fr = isect.bsdf->f(w_out, wi);
-        Vector3D eval = L * Fr / pdf;
+        Vector3D eval = L * Fr * angle / pdf;
         L_out += eval;
       }
     }
@@ -185,20 +183,26 @@ Vector3D PathTracer::at_least_one_bounce_radiance(const Ray &r,
   Vector3D hit_p = r.o + r.d * isect.t;
   Vector3D w_out = w2o * (-r.d);
 
-  Vector3D L_out = one_bounce_radiance(r, isect);
+  Vector3D L_out(0,0,0);
+
+  L_out += one_bounce_radiance(r, isect);
+  
   Vector3D Fr = isect.bsdf->sample_f(w_out, &sample_vec, &pdf); // this function gives us a random vector and calculates Fr
+  float angle = dot(sample_vec, Vector3D(0, 0, 1));
   sample_vec = o2w * sample_vec;
-  Ray randomR = Ray(hit_p, -1 * sample_vec); // wasn't working unless we use the ray constructor??
+
+  Ray randomR = Ray(hit_p, sample_vec); // wasn't working unless we use the ray constructor??
   randomR.min_t = EPS_F;
-  Intersection randomIsect;
   randomR.depth = r.depth-1;
+  Intersection randomIsect;
+
   bool shouldStop = coin_flip(CPDF);
   bool didIntersect = bvh->intersect(randomR, &randomIsect);
-  if(!shouldStop && didIntersect && randomR.depth > 1) {
-    L_out+= at_least_one_bounce_radiance(r, randomIsect) * dot(o2w * w_out, Fr) * Fr / pdf / CPDF;
-  }
-  return L_out;
+  if(!shouldStop && didIntersect && randomR.depth > 1 && angle > 0) {
+    L_out += at_least_one_bounce_radiance(randomR, randomIsect) * Fr * angle / pdf / CPDF;
+  }  
 
+  return L_out;
   // TODO: Part 4, Task 2
   // Returns the one bounce radiance + radiance from extra bounces at this point.
   // Should be called recursively to simulate extra bounces.
@@ -221,7 +225,7 @@ Vector3D PathTracer::est_radiance_global_illumination(const Ray &r) {
   if (!bvh->intersect(r, &isect))
     return envLight ? envLight->sample_dir(r) : L_out;
 
-  L_out = (isect.t == INF_D) ? debug_shading(r.d) : (zero_bounce_radiance(r, isect) + at_least_one_bounce_radiance(r, isect));//normal_shading(isect.n);
+  L_out = (isect.t == INF_D) ? debug_shading(r.d) : (zero_bounce_radiance(r, isect) + at_least_one_bounce_radiance(r, isect)); //normal_shading(isect.n);
 
   // TODO (Part 3): Return the direct illumination.
 
