@@ -175,7 +175,7 @@ Vector3D PathTracer::one_bounce_radiance(const Ray &r,
 
 Vector3D PathTracer::at_least_one_bounce_radiance(const Ray &r,
                                                   const Intersection &isect) {
-  const double CPDF = 0.7;
+  const double CPDF = 0.4;
   Vector3D sample_vec; double pdf;
   Matrix3x3 o2w;
   make_coord_space(o2w, isect.n);
