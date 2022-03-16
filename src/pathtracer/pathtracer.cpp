@@ -175,7 +175,7 @@ Vector3D PathTracer::one_bounce_radiance(const Ray &r,
 
 Vector3D PathTracer::at_least_one_bounce_radiance(const Ray &r,
                                                   const Intersection &isect) {
-  const double CPDF = 0.4;
+  const double CPDF = 0.7;
   Vector3D sample_vec; double pdf;
   Matrix3x3 o2w;
   make_coord_space(o2w, isect.n);
@@ -247,21 +247,33 @@ void PathTracer::raytrace_pixel(size_t x, size_t y) {
   int num_samples = ns_aa;          // total samples to evaluate
   Vector2D origin = Vector2D(x, y); // bottom left corner of the pixel
   Vector3D estimate = Vector3D(0, 0, 0);
+  float s1, s2;
+  int i = 1;
 
-  for (int i = 0; i < num_samples; i++) {
+  for (i = 1; i <= num_samples; i++) {
+    if (i % samplesPerBatch == 0) {
+      float mu = s1/double(i);
+      float var2 = (s2- (s1 * s1) / float(i)) / float(i-1);
+      float var = sqrt(var2);
+      float I = 1.96 * var / sqrt(float(i));
+      if(I <= maxTolerance * mu) {
+        break;
+      }
+    }
+
     Vector2D sample = gridSampler->get_sample();
     Vector2D sample_pt = origin + sample;
     Ray ray = camera->generate_ray(sample_pt.x/sampleBuffer.w, sample_pt.y/sampleBuffer.h);
     ray.depth = this->max_ray_depth;
-    estimate += est_radiance_global_illumination(ray);
-    // no need to divide by pdf, since we would just be dividing by (1*1)
+    Vector3D ret_vec = est_radiance_global_illumination(ray);
+    s1 += ret_vec.illum();
+    s2 += ret_vec.illum() * ret_vec.illum();
+    estimate += ret_vec; 
   }
-  estimate = estimate / num_samples;
 
+  estimate = estimate / i;
   sampleBuffer.update_pixel(estimate, x, y);
-  sampleCountBuffer[x + y * sampleBuffer.w] = num_samples;
-
-
+  sampleCountBuffer[x + y * sampleBuffer.w] = i;
 }
 
 void PathTracer::autofocus(Vector2D loc) {
