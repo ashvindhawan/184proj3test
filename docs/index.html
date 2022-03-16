@@ -24,24 +24,112 @@
         <p>If you are well-versed in web development, feel free to ditch this template and make a better looking page. Just make sure that you include all the components as we've laid them out here. </p>
 
     <h2 align="middle">Part 1: Ray Generation and Intersection</h2>
-        <p>Describe what you did in Part 1. etc...</p>
+        <p>The first step of our rendering pipeline was creating a conversion from image space to world space. By defining a “virtual camera sensor” and projecting points on an image into this sensor’s space, we are able to send rays into our image. More specifically, after converting to world coordinates we generate rays from the camera’s position to the projected x, y values in order to estimate the radiance at a given pixel. Averaging over ns_aa samples per pixel gives us a more accurate estimate of the radiance at a single pixel, which spans many x,y coordinates.</p>
+        <p>We then implemented logic to evaluate whether or not intersections occurred between rays and primitive objects such as triangles and spheres. We closely followed the algorithms explained in lecture, such as the Möller-Trumbore algorithm for triangle intersections and utilizing the quadratic formula for sphere intersections.</p>
+        <p>For triangle intersections, the Möller-Trumbore algorithm is an optimized algorithm to evaluate ray-triangle intersections. It utilizes Cramer’s rule to reduce the amount of necessary floating point operations. We created a helper function that took in a ray as input and returned a vector containing the time of intersection as well as the barycentric coordinates representing the intersection. We then checked to make sure the t value was between the ray’s min_t and max_t, and that the barycentric coordinates were logically consistent before updating the Intersection object and returning the corresponding boolean value. </p>
         <div align="center">
             <table style="width=100%">
                 <tr>
                     <td align="middle">
-                    <img src="images/example_image.png" width="480px" />
-                    <figcaption align="middle">Results Caption: my bunny is the bounciest bunny</figcaption>
+                    <img src="images/Part1-cow.png" width="300px" />
+                    <figcaption align="middle">cow.dae</figcaption>
+
+                    <td align="middle">
+                    <img src="images/Part1-teapot.png" width="300px" />
+                    <figcaption align="middle">teapot.dae</figcaption>
+
+                    <td align="middle">
+                    <img src="images/Part1-gems.png" width="300px" />
+                    <figcaption align="middle">CBgems.dae</figcaption>
                 </tr>
             </table>
         </div>
+
+    <h2 align="middle">Part 3: Direct Illumination</h2>
+        <p>In hemisphere sampling, once the intersection point between a ray and a primitive is established, rays are randomly sampled from the hemisphere above said intersection point. After converting this ray to world space using the 'o2w' matrix, we check if this ray subsequently intersects another primitive in the scene, and if it does, we add the radiance that travels from the 2nd intersection point to the first intersection point along the ray in question. However, there are also terms we need to account for, such as the BSDF of the intersection point, the intersection angle to accommodate Lambert's cosine law, and the prior probability of our sample, since our hemisphere sampling is a Monte Carlo estimate of the integral over a hemisphere. After accounting for these terms, we average the sum over the number of samples to return the total irradiance at our original intersection point.</p>
+        <p>In importance sampling, rather than sample uniformly over the hemisphere surrounding a point, we only sample over the lights in a scene. We sample all of the area lights in the scene 'ns_area_light' times, and sample each of the point light sources once. Then, after ensuring that there is no obstructing object between the light source sample point and our intersection point (which includes ensuring the light isn’t behind the intersection point), we add the average irradiance over all samples to return the total irradiance at our original intersection point. Just like in hemisphere sampling, we must account for the terms listed in the paragraph above to make our sample accurate.</p>
+       <h3>Hemisphere sampling:</h3>
+        <table style="width=100%">
+            <tr>
+                <td align="middle">
+                <img src="images/Part3-CBbunny_Hemisphere_64_32.png" width="500px" />
+                <figcaption align="middle">CBbunny.dae, 64 samples/pixel, 32 samples/light</figcaption>
+
+                <td align="middle">
+                <img src="images/Part3-CBspheres_Hemisphere_64_32.png" width="500px" />
+                <figcaption align="middle">CBspheres_lambertian.dae, 64 samples/pixel, 32 samples/light</figcaption>
+            </tr>
+        </table>
+
+        <h3>Importance sampling:</h3>
+        <table style="width=100%">
+            <tr>
+                <td align="middle">
+                <img src="images/Part3-CBbunny_Importance_64_32.png" width="500px" />
+                <figcaption align="middle">CBbunny.dae, 64 samples/pixel, 32 samples/light</figcaption>
+
+                <td align="middle">
+                <img src="images/Part3-CBspheres_Importance_64_32.png" width="500px" />
+                <figcaption align="middle">CBspheres_lambertian.dae, 64 samples/pixel, 32 samples/light</figcaption>
+            </tr>
+        </table>
+
+
+        <h3>Noise Comparison: CBbunny.dae</h3>
+        <table style="width=100%">
+            <tr>
+                <td align="middle">
+                <img src="images/Part3-noise_1_1.png" width="300px" />
+                <figcaption align="middle">1 light ray</figcaption>
+
+                <td align="middle">
+                <img src="images/Part3-noise_1_4.png" width="300px" />
+                <figcaption align="middle">4 light rays</figcaption>
+
+                <td align="middle">
+                <img src="images/Part3-noise_1_16.png" width="300px" />
+                <figcaption align="middle">16 light rays</figcaption>
+
+                <td align="middle">
+                <img src="images/Part3-noise_1_64.png" width="300px" />
+                <figcaption align="middle">64 light rays</figcaption>
+            </tr>
+        </table>
+
+        <p>As we can see, noise levels in the bunny's shadows go down as we increase the number of light rays. More light rays causes each pixel value to converge, resulting in decreased noise.</p>
+
+        <h3>Comparison between hemisphere and importance sampling:</h3>
+
+        <p>The main apparent difference between hemisphere and importance sampling is the presence of noise. Because hemisphere sampling chooses any direction in the hemisphere with equal likelihood, it is very likely to get many rays that return an irradiance of zero, even when a point is under direct light exposure. This explains why the noise is displayed as high concentrations of adjacent white and black pixels, but also explains why noise tends to decrease as the number of samples increases. Importance sampling, however, has a much lower likelihood of returning an irradiance of zero given that only light sources are sampled, which explains the significantly less noise. </p>
+    
+        <h2 align="middle">Part 5: Adaptive Sampling</h2>
+        
+        <p>Adaptive sampling allows us to vary how many times we sample the irradiance at a single point. If the point's irradiance converges quickly, we can stop sampling since we can conclude with statistical confidence that the mean will not deviate much further if we take more samples. However, for points with high variance, we can continue to sample until convergence. We do this by calculating a variable I = 1.96 * variance / sqrt(num_samples). We then check when this value becomes less than or equal to maxTolerance * (mean of all samples). When maxTolerance=0.05, we have reached a 95% confidence interval for the pixel irradiance with deviation I. 
+        </p>
+        <p>More specifically, we use a variable called 'samplesPerBatch' to perform this check. Every 'samplesPerBatch' iterations, we use our running irradiance total to calculate I. If it is less than  maxTolerance * (mean of all samples), we break out of the loop.</p>
+        
+        
+        <h3>CBbunny.dae adaptive sample, 2048 samples/pixel, max ray depth of 10</h3>
+        <table style="width=100%">
+            <tr>
+                <td align="middle">
+                <img src="images/Part5-bunny_2048_1_64_.05.png" width="500px" />
+                <figcaption align="middle">Adaptive Sample</figcaption>
+
+                <td align="middle">
+                <img src="images/Part5-bunny_2048_1_64_.05_rate.png" width="500px" />
+                <figcaption align="middle">Sample Rate Map</figcaption>
+            </tr>
+        </table>
+
+
         <p>Here is an example of how to include a simple formula:</p>
         <p align="middle"><pre align="middle">a^2 + b^2 = c^2</pre></p>
         <p>or, alternatively, you can include an SVG image of a LaTex formula.</p>
         <p>This time it's your job to copy-paste in the rest of the sections :)</p>
 
 
-
-    <h2 align="middle">A Few Notes On Webpages</h2>
+        <h2 align="middle">A Few Notes On Webpages</h2>
         <p>Here are a few problems students have encountered in the past. You will probably encounter these problems at some point, so don't wait until right before the deadline to check that everything is working. Test your website on the instructional machines early!</p>
         <ul>
         <li>Your main report page should be called index.html.</li>
