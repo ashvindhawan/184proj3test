@@ -9,19 +9,17 @@
       padding-left: 100px;  
     }  
   </style> 
-<title>Your Name  |  CS 184</title>
+<title>Ishil Puri, Ashvin Dhawan  |  CS 184</title>
 <meta http-equiv="content-type" content="text/html; charset=utf-8" />
 <link rel="stylesheet" type="text/css" href="style.css" media="screen" />
 </head>
 <body>
 <br />
 <h1 align="middle">Assignment 3: PathTracer</h1>
-    <h2 align="middle">Your Name</h2>
+    <h2 align="middle">Ishil Puri, Ashvin Dhawan</h2>
 
     <div class="padded">
-        <p>Use this section to write an overview of the assignment. All of the text in your write-up should be <em>in your own words</em>. If you need to add additional HTML features to this document, you can search the <a href="http://www.w3schools.com/">http://www.w3schools.com/</a> website for instructions. To edit the HTML, you can just copy and paste existing chunks and fill in the text and image file names appropriately.</p>
-        <o>The website writeup is intended to be a self-contained walkthrough of the assignment: we want this to be a piece of work which showcases your understanding of relevant concepts through both mesh images as well as written explanations about what you did to complete each part of the assignment. Try to be as clear and organized as possible when writing about your own output files or extensions to the assignment. We want to understand what you've achieved and how you've done it!</p> 
-        <p>If you are well-versed in web development, feel free to ditch this template and make a better looking page. Just make sure that you include all the components as we've laid them out here. </p>
+        <p>Project 3 was quite a challenge for my partner and I. We found the content to be quite intriguing but certain aspects of how to approach rendering techniques were unclear. But we found that being able to experiment with various parameters in the render to understand how for example samples per pixel would affect the render or even the number of light rays. Another example of an obstacle we overcame included determining the split point. At first we thought taking the average of the centroids would work, however, we ran into an issue with infinite recursion. After reading other piazza comments we tested multiple other heuristics to find the most optimal split method. We also adopted smarter coding practices for example when generating BVHNodes in part 2 we used the partition function to create in-place sorting mechanisms which prevent the extensive use of memory.</p>
 
     <h2 align="middle">Part 1: Ray Generation and Intersection</h2>
         <p>The first step of our rendering pipeline was creating a conversion from image space to world space. By defining a “virtual camera sensor” and projecting points on an image into this sensor’s space, we are able to send rays into our image. More specifically, after converting to world coordinates we generate rays from the camera’s position to the projected x, y values in order to estimate the radiance at a given pixel. Averaging over ns_aa samples per pixel gives us a more accurate estimate of the radiance at a single pixel, which spans many x,y coordinates.</p>
@@ -44,6 +42,29 @@
                 </tr>
             </table>
         </div>
+    
+    <h2 align="middle">Part 2: Bounding Volume Hierarchy</h2>
+    <p>Our BVH construction algorithm takes in the given vector of primitives and max-leaf size configuration and essentially partitions the vector based on a lambda function that we define. This allows us to use constant memory when assigning the left and right nodes. The lambda function uses our split point to determine which side the primitive falls on and assigns true and false values appropriately. The heuristic we chose for picking the split point was finding the centroid of the bounding box of the axis with the longest extent. We chose this method because we find that this produces an optimal distribution between left and right nodes and avoids a possible skewing of value if we were to use an average for example. Thus each side of the BVHNode should ideally have a value.</p>
+
+    <p>BVH acceleration dramatically improved performance on even the most simple of renders. Early on in the project we were having some problems in regards to slow render times and realized that we forgot to enable the BVH Accel function. The performance increase for a CBbunny render went from a few minutes to around 30 seconds. The reason for this is that the bounding boxes that we cast around each primitive prevent us from testing ray intersection in areas we know that the primitives do not exist. Thus, the process of elimination vastly improves compute time by reducing the number of calculations required.</p>
+    
+    <div align="center">
+        <table style="width=100%">
+            <tr>
+                <td align="middle">
+                <img src="images/Part2-blob-normal.png" width="500px" />
+                <figcaption align="middle">Blob.dae, 1024 samples/pixel, normal shading</figcaption>
+
+                <td align="middle">
+                <img src="images/Part2-coil-normal.png" width="500px" />
+                <figcaption align="middle">Coil.dae, 1024 samples/pixel, normal shading</figcaption>
+                
+                <td align="middle">
+                <img src="images/Part2-wall-e-normal.png" width="500px" />
+                <figcaption align="middle">wall-e.dae, 1024 samples/pixel, normal shading</figcaption>
+            </tr>
+        </table>
+    </div>
 
     <h2 align="middle">Part 3: Direct Illumination</h2>
         <p>In hemisphere sampling, once the intersection point between a ray and a primitive is established, rays are randomly sampled from the hemisphere above said intersection point. After converting this ray to world space using the 'o2w' matrix, we check if this ray subsequently intersects another primitive in the scene, and if it does, we add the radiance that travels from the 2nd intersection point to the first intersection point along the ray in question. However, there are also terms we need to account for, such as the BSDF of the intersection point, the intersection angle to accommodate Lambert's cosine law, and the prior probability of our sample, since our hemisphere sampling is a Monte Carlo estimate of the integral over a hemisphere. After accounting for these terms, we average the sum over the number of samples to return the total irradiance at our original intersection point.</p>
@@ -101,6 +122,101 @@
         <h3>Comparison between hemisphere and importance sampling:</h3>
 
         <p>The main apparent difference between hemisphere and importance sampling is the presence of noise. Because hemisphere sampling chooses any direction in the hemisphere with equal likelihood, it is very likely to get many rays that return an irradiance of zero, even when a point is under direct light exposure. This explains why the noise is displayed as high concentrations of adjacent white and black pixels, but also explains why noise tends to decrease as the number of samples increases. Importance sampling, however, has a much lower likelihood of returning an irradiance of zero given that only light sources are sampled, which explains the significantly less noise. </p>
+
+
+    <h2 align="middle">Part 4: Global Illumination</h2>
+    <p>In order to implement indirect lighting, we needed to modify the est_radiance_gloabal_illumination function to include the zero_bounce + at_least_one_bounce radiance. Then in our one_bounce function we made sure to implement the hemisphere sampling or importance sampling methods which each provide the estimate of values for the one_bounce which is the base case of our at_least_one_bounce function. The at_least_one_bounce essentially means that we allow the rays to continue bouncing until the max ray depth we set in conjunction with the russian roulette probability function which prevents infinite recursion by modeling the dissipation of energy through a probability of termination between 0.3 and 0.4.</p>
+    
+    <div align="center">
+        <table style="width=100%">
+            <tr>
+                <td align="middle">
+                <img src="images/Part4-blob.png" width="500px" />
+                <figcaption align="middle">blob.dae, 1024 samples/pixel, global illumination</figcaption>
+                
+                <td align="middle">
+                <img src="images/Part4-wall-e.png" width="500px" />
+                <figcaption align="middle">wall-e.dae, 1024 samples/pixel, global illumination</figcaption>
+            </tr>
+            <tr>
+                <td align="middle">
+                <img src="images/Part4-CBspheres-direct-1024.png" width="500px" />
+                <figcaption align="middle">CBspheres_lambertian.dae, 1024 samples/pixel, only direct illumination</figcaption>
+                
+                <td align="middle">
+                <img src="images/Part4-CBsphere-indirect-1024.png" width="500px" />
+                <figcaption align="middle">CBspheres_lambertian.dae, 1024 samples/pixel, only indirect illumination</figcaption>
+            </tr>
+        </table>
+        <table style="width=100%">
+            <tr>
+                <p>It is interesting to see how in direct illumination we eliminated the at_least_one_bounce function's effect on lighting and thus only have zero_bounce and one_bounce which means that rays can only light objects that are directly hit by the light source. However, in indirect illumination we essentially got rid of the first one_bounce and only kept zero bounce and the 2nd bounce and onwards for each ray. This actually shows us a cool effect that indirect illumination has on the scene.</p>
+            </tr>
+            <tr>
+                <td align="middle">
+                <img src="images/Part4-CBbunny-0.png" width="500px" />
+                <figcaption align="middle">CBbunny.dae, 1024 samples/pixel, m=0</figcaption>
+
+                <td align="middle">
+                <img src="images/Part4-CBbunny-1.png" width="500px" />
+                <figcaption align="middle">CBbunny.dae, 1024 samples/pixel, m=1</figcaption>
+            </tr>
+            <tr>
+                <td align="middle">
+                <img src="images/Part4-CBbunny-2.png" width="500px" />
+                <figcaption align="middle">CBbunny.dae, 1024 samples/pixel, m=2</figcaption>
+
+                <td align="middle">
+                <img src="images/Part4-CBbunny-3.png" width="500px" />
+                <figcaption align="middle">CBbunny.dae, 1024 samples/pixel, m=3</figcaption>
+            </tr>
+                <td align="middle">
+                <img src="images/Part4-CBbunny-100.png" width="500px" />
+                <figcaption align="middle">CBbunny.dae, 1024 samples/pixel, m=100</figcaption>
+        </table>
+
+        <table style="width=100%">
+            <tr>
+                <p>max ray depth at 0 essentially should be direct lighting. When m=1 and starts to increase we should see that previously unlit places should slowly begin to become brighter as light rays are able to reach more places like shadows. And we see that in m=100, the scene is quite well lit.</p>
+            </tr>
+            <tr>
+                <td align="middle">
+                <img src="images/Part4-CBsphere-s1.png" width="500px" />
+                <figcaption align="middle">CBspheres_lambertian.dae, 1 samples/pixel, l=4 </figcaption>
+
+                <td align="middle">
+                <img src="images/Part4-CBsphere-s2.png" width="500px" />
+                <figcaption align="middle">CBspheres_lambertian.dae, 2 samples/pixel, l=4 </figcaption>
+            </tr>
+            <tr>
+                <td align="middle">
+                <img src="images/Part4-CBsphere-s4.png" width="500px" />
+                <figcaption align="middle">CBspheres_lambertian.dae, 4 samples/pixel, l=4 </figcaption>
+
+                <td align="middle">
+                <img src="images/Part4-CBsphere-s8.png" width="500px" />
+                <figcaption align="middle">CBspheres_lambertian.dae, 8 samples/pixel, l=4 </figcaption>
+            </tr>
+            <tr>
+                <td align="middle">
+                <img src="images/Part4-CBsphere-s16.png" width="500px" />
+                <figcaption align="middle">CBspheres_lambertian.dae, 16 samples/pixel, l=4 </figcaption>
+
+                <td align="middle">
+                <img src="images/Part4-CBsphere-s64.png" width="500px" />
+                <figcaption align="middle">CBspheres_lambertian.dae, 64 samples/pixel, l=4 </figcaption>
+            </tr>
+            <td align="middle">
+                <img src="images/Part4-CBsphere-s1024.png" width="500px" />
+                <figcaption align="middle">CBspheres_lambertian.dae, 1024 samples/pixel, l=4</figcaption>
+        </table>
+        <table>
+            <tr>
+                <p>The increase of sample rate reduces the popcorn like noise in our scene. 1024 samples per pixel is a very smooth image where the shadows blend well as compared to even 16 or 64 samples per pixel. Thus we can see the significant effect of increasing sample rate in reducing noise and improving estimates at each point of the objects in the scene which produce sharper details.</p>
+            </tr>
+        </table>
+    </div>
+
     
         <h2 align="middle">Part 5: Adaptive Sampling</h2>
         
